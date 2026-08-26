@@ -1,0 +1,31 @@
+# Zephyr workspace, SDK and interpreter: ~8 GB, all reproducible.
+# Recreate with: west init -m https://github.com/zephyrproject-rtos/zephyr --mr v4.4.2
+zephyrproject/
+zephyr-sdk*/
+toolchain-python/
+
+# Build output
+build/
+
+# TI's SmartRF Packet Sniffer 2 firmware. Redistribution is restricted by TI's
+# licence, and it is not used by this project (we run our own Zephyr firmware).
+# Re-extract from the TI download if ever needed -- see README.
+firmware/
+
+# Full flash readout of the board. Kept on disk as a restore image, but never
+# committed: it contains the device's NV storage, which can hold Zigbee network
+# keys if the board was ever commissioned, plus its unique IEEE address.
+# Recreate with:
+#   openocd -f openocd/lpstk-cc1352r.cfg -c init -c halt \
+#     -c "dump_image backup/lpstk-factory-flash.bin 0x00000000 0x58000" -c shutdown
+backup/lpstk-factory-flash.bin
+
+# Packet captures (may contain your network traffic)
+captures/
+
+# Zigbee network key (secret, local only)
+.zha-network-key
+
+# Python bytecode
+__pycache__/
+*.pyc

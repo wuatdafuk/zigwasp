@@ -1,0 +1,26 @@
+--- a/src/jtag/drivers/xds110.c	2026-08-25 21:47:56.020217179 +0100
++++ src/jtag/drivers/xds110.c	2026-08-25 21:47:56.028217424 +0100
+@@ -1457,10 +1457,19 @@
+ 	if (success) {
+ 		/* Set supply voltage for stand-alone probes */
+ 		if (xds110.hardware == XDS110_STAND_ALONE_ID) {
+-			success = xds_set_supply(xds110.voltage);
+-			/* Allow time for target device to power up */
+-			/* (CC32xx takes up to 1300 ms before debug is enabled) */
+-			alive_sleep(1500);
++			/* Some embedded probes (e.g. the CC1352R1 LaunchPad running
++			 * firmware 03.00.00.29) misreport the stand-alone hardware ID
++			 * and then reject XDS_SET_SUPPLY. Requesting a supply of 0 mV
++			 * is a no-op anyway, so skip it entirely, and never let a
++			 * rejection abort init on a probe with no supply to control. */
++			if (xds110.voltage != 0) {
++				if (!xds_set_supply(xds110.voltage))
++					LOG_WARNING("XDS110: probe rejected supply voltage "
++						"setting; continuing without it");
++				/* Allow time for target device to power up */
++				/* (CC32xx takes up to 1300 ms before debug is enabled) */
++				alive_sleep(1500);
++			}
+ 		} else if (xds110.voltage != 0) {
+ 			/* Voltage supply not a feature of embedded probes */
+ 			LOG_WARNING(

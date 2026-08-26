@@ -1,0 +1,60 @@
+--- a/drivers/ieee802154/ieee802154_cc13xx_cc26xx.c
++++ b/drivers/ieee802154/ieee802154_cc13xx_cc26xx.c
+@@ -126,7 +126,7 @@
+ static enum ieee802154_hw_caps
+ ieee802154_cc13xx_cc26xx_get_capabilities(const struct device *dev)
+ {
+-	return IEEE802154_HW_FCS | IEEE802154_HW_FILTER |
++	return IEEE802154_HW_FCS | IEEE802154_HW_FILTER | IEEE802154_HW_PROMISC |
+ 	       IEEE802154_HW_RX_TX_ACK | IEEE802154_HW_TX_RX_ACK | IEEE802154_HW_CSMA |
+ 	       IEEE802154_HW_RETRANSMISSION | IEEE802154_HW_ENERGY_SCAN;
+ }
+@@ -533,7 +533,33 @@
+ 				   enum ieee802154_config_type type,
+ 				   const struct ieee802154_config *config)
+ {
+-	return -ENOTSUP;
++	struct ieee802154_cc13xx_cc26xx_data *drv_data = dev->data;
++	uint8_t channel;
++
++	switch (type) {
++	case IEEE802154_CONFIG_PROMISCUOUS:
++		/* Sniffer mode. Turn off hardware address filtering so every
++		 * frame on the channel is delivered, and turn off auto-ACK so
++		 * we stay strictly passive -- a sniffer must never transmit
++		 * into the network it is observing.
++		 */
++		drv_data->cmd_ieee_rx.frameFiltOpt.frameFiltEn =
++			config->promiscuous ? 0 : 1;
++		drv_data->cmd_ieee_rx.frameFiltOpt.autoAckEn =
++			config->promiscuous ? 0 : 1;
++
++		/* Re-post CMD_IEEE_RX so the new filter options take effect.
++		 * If no valid channel is set yet the next set_channel() will
++		 * pick these up anyway, so this is not an error.
++		 */
++		channel = drv_data->cmd_ieee_rx.channel;
++		if (channel < 11 || channel > 26) {
++			return 0;
++		}
++		return ieee802154_cc13xx_cc26xx_reset_channel(dev);
++	default:
++		return -ENOTSUP;
++	}
+ }
+ 
+ /* driver-allocated attribute memory - constant across all driver instances */
+@@ -739,8 +765,11 @@
+ 		.condition.rule = COND_NEVER,
+ 		.channel = 0,
+ 		.rxConfig = {
+-			.bAutoFlushCrc = 1,
+-			.bAutoFlushIgn = 1,
++			/* Sniffing: keep CRC-failed and would-be-ignored frames
++			 * rather than letting the radio silently drop them.
++			 */
++			.bAutoFlushCrc = 0,
++			.bAutoFlushIgn = 0,
+ 			.bIncludePhyHdr = 0,
+ 			.bIncludeCrc = 1,
+ 			.bAppendRssi = 1,
